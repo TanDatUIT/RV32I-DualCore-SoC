@@ -1,0 +1,15 @@
+# Simulation & FPGA build outputs
+work_sim/
+outputs/
+reports/
+.Xil/
+*.jou
+*.log
+*.vcd
+*.fst
+*.vvp
+*.dcp
+*.str
+obj_dir/
+__pycache__/
+*.pyc
