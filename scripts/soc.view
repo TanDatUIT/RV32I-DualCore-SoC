@@ -1,0 +1,68 @@
+# ==============================================================================
+# soc.view - Two-Corner MMMC Configuration for Cadence Innovus
+# Project : SoC Physical Design Final Project (Cadence GPDK 45nm)
+# Corners : Setup -> slow_vdd1v0 (0.9V, 125C) + sram_2k_macro
+#           Hold  -> fast_vdd1v0 (1.1V,   0C) + sram_2k_macro
+# ==============================================================================
+
+if {[info exists ::env(PDK_ROOT)]} {
+    set _pdk $::env(PDK_ROOT)
+} elseif {[info exists ::env(PDK)]} {
+    set _pdk $::env(PDK)
+} else {
+    error "PDK_ROOT is not set - run via scripts/run_innovus_soc.tcl"
+}
+
+if {[info exists ::env(SOC_ROOT)]} {
+    set _soc $::env(SOC_ROOT)
+} else {
+    set _soc [file normalize [file join [file dirname [info script]] ..]]
+}
+
+# 1. Library Sets
+create_library_set -name lib_slow \
+    -timing [list \
+        $_pdk/lib/slow_vdd1v0_basiccells.lib \
+        $_pdk/lib/sram_2k_macro.lib]
+
+create_library_set -name lib_fast \
+    -timing [list \
+        $_pdk/lib/fast_vdd1v0_basicCells.lib \
+        $_pdk/lib/sram_2k_macro.lib]
+
+# 2. RC Corners
+create_rc_corner -name rc_worst -T 125
+create_rc_corner -name rc_best  -T 0
+
+# 3. Delay Corners
+create_delay_corner -name delay_corner_slow \
+    -library_set {lib_slow} \
+    -rc_corner   {rc_worst}
+
+create_delay_corner -name delay_corner_fast \
+    -library_set {lib_fast} \
+    -rc_corner   {rc_best}
+
+# 4. Constraint Mode
+if {[info exists ::env(SOC_SDC)] && $::env(SOC_SDC) ne ""} {
+    set _sdc $::env(SOC_SDC)
+} else {
+    set _sdc $_soc/outputs/soc_syn.sdc
+}
+if {![file exists $_sdc]} {
+    set _sdc $_soc/sdc/soc.sdc
+}
+puts "\[soc.view\] constraint file: $_sdc"
+
+create_constraint_mode -name mode_func -sdc_files [list $_sdc]
+
+# 5. Analysis Views (Setup Slow / Hold Fast)
+create_analysis_view -name view_setup \
+    -delay_corner    {delay_corner_slow} \
+    -constraint_mode {mode_func}
+
+create_analysis_view -name view_hold \
+    -delay_corner    {delay_corner_fast} \
+    -constraint_mode {mode_func}
+
+set_analysis_view -setup {view_setup} -hold {view_hold}
