@@ -126,7 +126,7 @@ module soc_uart #(
                     if ({16'd0, reg_tx_cnt} == (PR_CLKS_PER_BIT - 1)) begin
                         reg_tx_cnt <= 16'd0;
                         o_uart_txd <= reg_tx_shift[reg_tx_bit];
-                        if (reg_tx_bit == 4'd8) begin
+                        if (reg_tx_bit == 4'd9) begin
                             reg_tx_state <= LP_TX_STOP;
                         end else begin
                             reg_tx_bit <= reg_tx_bit + 4'd1;

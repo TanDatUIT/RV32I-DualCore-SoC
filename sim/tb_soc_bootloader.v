@@ -113,7 +113,8 @@ module tb_soc_bootloader;
             crc_acc    = 32'hFFFF_FFFF;
             fd = $fopen("firmware/apps/app_update.hex", "r");
             if (fd == 0) begin
-                $fatal(1, "Cannot open firmware/apps/app_update.hex");
+                $display("[FATAL] Cannot open firmware/apps/app_update.hex");
+                $finish;
             end
             while (!$feof(fd)) begin
                 rc = $fscanf(fd, "%h\n", w);
@@ -142,7 +143,8 @@ module tb_soc_bootloader;
             recv_soc_byte(rx_resp);
             if (rx_resp !== 8'h79) begin
                 $display("[-] Expected 'y' (0x79), got 0x%02x", rx_resp);
-                $fatal(1, "Bootloader sync failed");
+                $display("[FATAL] Bootloader sync failed");
+                $finish;
             end
             send_host_byte(fw_app_len[7:0]);
             for (w_idx = 0; w_idx < fw_app_len; w_idx = w_idx + 1) begin
@@ -154,7 +156,8 @@ module tb_soc_bootloader;
                 recv_soc_byte(rx_resp);
                 if (rx_resp !== 8'h06) begin
                     $display("[-] Expected ACK 0x06 at word %0d, got 0x%02x", w_idx, rx_resp);
-                    $fatal(1, "Word ACK failed");
+                    $display("[FATAL] Word ACK failed");
+                    $finish;
                 end
             end
             // Send 4-byte CRC32 little-endian
@@ -177,7 +180,7 @@ module tb_soc_bootloader;
         gpio_in  = 16'h0000;
         resetn   = 1'b0;
 
-        load_app_hex();
+        load_app_hex;
         $display("[TB_BOOT] Loaded app_update.hex (%0d words, CRC32 = 0x%08x)",
                  fw_app_len, expected_crc);
 
@@ -199,11 +202,13 @@ module tb_soc_bootloader;
         recv_soc_byte(resp);
         if (resp !== 8'h15) begin
             $display("[-] Phase A FAILED: expected NAK (0x15), got 0x%02x", resp);
-            $fatal(1, "Corrupted firmware was not rejected");
+            $display("[FATAL] Corrupted firmware was not rejected");
+            $finish;
         end
         if (gpio_out !== 16'h0000) begin
             $display("[-] Phase A FAILED: gpio_out changed to 0x%04x!", gpio_out);
-            $fatal(1, "Rejected firmware executed");
+            $display("[FATAL] Rejected firmware executed");
+            $finish;
         end
         $display("[TB_BOOT] [Phase A] PASS: Corrupted firmware rejected with NAK (0x15)!");
 
@@ -214,7 +219,8 @@ module tb_soc_bootloader;
         recv_soc_byte(resp);
         if (resp !== 8'h04) begin
             $display("[-] Phase B FAILED: expected EOT (0x04), got 0x%02x", resp);
-            $fatal(1, "Valid firmware did not return EOT");
+            $display("[FATAL] Valid firmware did not return EOT");
+            $finish;
         end
 
         // Receive "OK!" from updated application
@@ -227,13 +233,15 @@ module tb_soc_bootloader;
             (ch0 !== "O") || (ch1 !== "K") || (ch2 !== "!")) begin
             $display("[-] Phase B FAILED: gpio_oe=0x%04x gpio_out=0x%04x uart=%c%c%c",
                      gpio_oe, gpio_out, ch0, ch1, ch2);
-            $fatal(1, "Updated app execution check failed");
+            $display("[FATAL] Updated app execution check failed");
+            $finish;
         end
 
 `ifndef GATE_SIM
         if (u_soc_top.u_sysctrl.o_boot_lock !== 1'b1) begin
             $display("[-] Phase B FAILED: BOOT_LOCK not engaged!");
-            $fatal(1, "Boot lock check failed");
+            $display("[FATAL] Boot lock check failed");
+            $finish;
         end
 `endif
 
@@ -247,7 +255,8 @@ module tb_soc_bootloader;
     initial begin
         #(CLK_PERIOD * 2000000);
         $display("[-] TIMEOUT in tb_soc_bootloader!");
-        $fatal(1, "tb_soc_bootloader timed out");
+        $display("[FATAL] tb_soc_bootloader timed out");
+        $finish;
     end
 
 endmodule

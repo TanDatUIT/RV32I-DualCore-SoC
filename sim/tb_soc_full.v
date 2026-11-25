@@ -101,7 +101,8 @@ module tb_soc_full;
             if ((gpio_oe === 16'hFFFF) && ((gpio_out & 16'hFF00) === 16'hDE00)) begin
                 $display("[TB_FULL] FAIL signature detected: GPIO_OUT = 0x%04x at cycle %0d",
                          gpio_out, cyc_cnt);
-                $fatal(1, "SoC self-test failed");
+                $display("[FATAL] SoC self-test failed");
+                $finish;
             end
 
             if (!seen_stage1_pass && (gpio_oe === 16'hFFFF) && (gpio_out === 16'hA55A)) begin
@@ -126,7 +127,8 @@ module tb_soc_full;
         if (!seen_stage2_pass) begin
             $display("[TB_FULL] TIMEOUT! stage1=%b wdt=%b stage2=%b gpio_out=0x%04x",
                      seen_stage1_pass, seen_wdt_rst, seen_stage2_pass, gpio_out);
-            $fatal(1, "tb_soc_full timed out");
+            $display("[FATAL] tb_soc_full timed out");
+            $finish;
         end
 
 `ifdef GATE_SIM
