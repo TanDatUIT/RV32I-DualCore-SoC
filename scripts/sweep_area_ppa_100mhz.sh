@@ -6,7 +6,7 @@
 #           up to 85% (shrinking Die/Core Area step-by-step) + ICG @ 65%,
 #           measuring Die/Core Area, Actual Density, StdCell Count, Wirelength,
 #           Congestion, Setup/Hold WNS/TNS, Clock Skew, Power Breakdown, DRC.
-# NOTE    : Uses pure bash/awk/sed (no python3, safe under Cadence env on EDA server).
+# NOTE    : Uses pure bash/awk/sed (no python3, safe under Cadence env).
 # ==============================================================================
 set -uo pipefail
 
@@ -92,8 +92,8 @@ parse_timing_pair() {
         *)    content="$(cat "$f" 2>/dev/null || true)" ;;
     esac
     local wns tns
-    wns="$(printf '%s\n' "$content" | awk '/WNS \(ns\):/ {print $4; exit}')"
-    tns="$(printf '%s\n' "$content" | awk '/TNS \(ns\):/ {print $4; exit}')"
+    wns="$(printf '%s\n' "$content" | awk -F'|' '/WNS \(ns\):/ {gsub(/ /, "", $3); print $3; exit}')"
+    tns="$(printf '%s\n' "$content" | awk -F'|' '/TNS \(ns\):/ {gsub(/ /, "", $3); print $3; exit}')"
     [ -z "$wns" ] && wns="N/A"
     [ -z "$tns" ] && tns="N/A"
     echo "${wns} / ${tns}"
@@ -133,8 +133,8 @@ for sc in "${SCENARIOS[@]}"; do
 
     CONG_HV="N/A"
     if [ -f "$CONG_RPT" ]; then
-        CONG_H="$(awk '/Overflow:/ && /H/ {for(i=1;i<=NF;i++) if($i ~ /%$/) {print $i; exit}}' "$CONG_RPT" 2>/dev/null || true)"
-        CONG_V="$(awk '/Overflow:/ && /V/ {for(i=1;i<=NF;i++) if($i ~ /%$/) {print $i; exit}}' "$CONG_RPT" 2>/dev/null || true)"
+        CONG_H="$(awk '/Overflow:/ {match($0, /[0-9]+\.[0-9]+% H/); if(RSTART) {s=substr($0,RSTART,RLENGTH); sub(/ H/,"",s); print s; exit}}' "$CONG_RPT" 2>/dev/null || true)"
+        CONG_V="$(awk '/Overflow:/ {match($0, /[0-9]+\.[0-9]+% V/); if(RSTART) {s=substr($0,RSTART,RLENGTH); sub(/ V/,"",s); print s; exit}}' "$CONG_RPT" 2>/dev/null || true)"
         if [ -n "$CONG_H" ] || [ -n "$CONG_V" ]; then
             CONG_HV="${CONG_H:-0%} / ${CONG_V:-0%}"
         fi

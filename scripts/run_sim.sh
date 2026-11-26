@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # =============================================================================
-# run_sim.sh - Chay mo phong Cadence Xcelium truc tiep tren server EDA
+# run_sim.sh - Chay mo phong Cadence Xcelium tren server Cadence EDA
 # Usage:
 #   ./scripts/run_sim.sh [full|boot|all] [rtl|syn|pnr] [vcd]
 # =============================================================================
@@ -73,7 +73,7 @@ EOF
             "${gls_args[@]}" \
             "$PDK_DIR/lib/slow_vdd1v0_basiccells.v" \
             sim/sram_2k_macro.v \
-            outputs/soc_top_final_pr.v \
+            outputs/soc_top_pnr_lec.v \
             "sim/${tb}.v" \
             -top "$tb" \
             -timescale 1ns/1ps \

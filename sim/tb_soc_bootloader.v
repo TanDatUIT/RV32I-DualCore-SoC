@@ -1,6 +1,6 @@
 // =============================================================================
 // Testbench   : tb_soc_bootloader
-// Project     : SoC Physical Design Final Project (Dual-Core RV32I SoC)
+// Project     : SoC Physical Design Final Project (Cadence GPDK 45nm)
 // Description : Verification of Secure UART Bootloader + HW CRC32 + Boot-Lock.
 //               Phase A (Negative Security Test): inject corrupted CRC32 ->
 //                 Bootloader must reject with NAK (0x15) and NOT execute app.
@@ -12,7 +12,11 @@
 
 module tb_soc_bootloader;
 
+`ifdef GATE_SIM
+    localparam integer PR_CLKS_PER_BIT = 868;
+`else
     localparam integer PR_CLKS_PER_BIT = 16;
+`endif
     localparam real    CLK_PERIOD      = 10.0; // 100 MHz
     localparam real    BIT_PERIOD      = CLK_PERIOD * PR_CLKS_PER_BIT;
 
@@ -41,9 +45,13 @@ module tb_soc_bootloader;
         forever #(CLK_PERIOD / 2.0) clk = ~clk;
     end
 
+`ifdef GATE_SIM
+    soc_top u_soc_top (
+`else
     soc_top #(
         .PR_UART_CLKS_PER_BIT (PR_CLKS_PER_BIT)
     ) u_soc_top (
+`endif
         .i_clk      (clk),
         .i_resetn   (resetn),
         .i_uart_rxd (uart_rxd),
@@ -135,12 +143,18 @@ module tb_soc_bootloader;
 
     task stream_firmware_and_crc;
         input [31:0] crc_to_send;
+        output [7:0] final_resp;
         integer w_idx;
         reg [7:0]  rx_resp;
         reg [31:0] cur_word;
         begin
-            send_host_byte(8'h7F);
-            recv_soc_byte(rx_resp);
+            // Full-duplex fork/join: DUT triggers rx_valid at middle of Stop bit
+            // and can assert TX Start bit before host finishes waiting Stop bit
+            // at slow baud rates (e.g. PR_CLKS_PER_BIT=868 in GATE_SIM).
+            fork
+                send_host_byte(8'h7F);
+                recv_soc_byte(rx_resp);
+            join
             if (rx_resp !== 8'h79) begin
                 $display("[-] Expected 'y' (0x79), got 0x%02x", rx_resp);
                 $display("[FATAL] Bootloader sync failed");
@@ -152,19 +166,24 @@ module tb_soc_bootloader;
                 send_host_byte(cur_word[7:0]);
                 send_host_byte(cur_word[15:8]);
                 send_host_byte(cur_word[23:16]);
-                send_host_byte(cur_word[31:24]);
-                recv_soc_byte(rx_resp);
+                fork
+                    send_host_byte(cur_word[31:24]);
+                    recv_soc_byte(rx_resp);
+                join
                 if (rx_resp !== 8'h06) begin
                     $display("[-] Expected ACK 0x06 at word %0d, got 0x%02x", w_idx, rx_resp);
                     $display("[FATAL] Word ACK failed");
                     $finish;
                 end
             end
-            // Send 4-byte CRC32 little-endian
+            // Send 4-byte CRC32 little-endian and capture NAK/EOT concurrently
             send_host_byte(crc_to_send[7:0]);
             send_host_byte(crc_to_send[15:8]);
             send_host_byte(crc_to_send[23:16]);
-            send_host_byte(crc_to_send[31:24]);
+            fork
+                send_host_byte(crc_to_send[31:24]);
+                recv_soc_byte(final_resp);
+            join
         end
     endtask
 
@@ -198,8 +217,7 @@ module tb_soc_bootloader;
 
         // Phase A: Negative Security Test (corrupted CRC32 must be rejected)
         $display("[TB_BOOT] [Phase A] Streaming firmware with CORRUPTED CRC32 = 0x%08x...", bad_crc);
-        stream_firmware_and_crc(bad_crc);
-        recv_soc_byte(resp);
+        stream_firmware_and_crc(bad_crc, resp);
         if (resp !== 8'h15) begin
             $display("[-] Phase A FAILED: expected NAK (0x15), got 0x%02x", resp);
             $display("[FATAL] Corrupted firmware was not rejected");
@@ -215,8 +233,7 @@ module tb_soc_bootloader;
         // Phase B: Positive Secure Boot (valid CRC32)
         #(BIT_PERIOD * 2);
         $display("[TB_BOOT] [Phase B] Streaming firmware with VALID CRC32 = 0x%08x...", expected_crc);
-        stream_firmware_and_crc(expected_crc);
-        recv_soc_byte(resp);
+        stream_firmware_and_crc(expected_crc, resp);
         if (resp !== 8'h04) begin
             $display("[-] Phase B FAILED: expected EOT (0x04), got 0x%02x", resp);
             $display("[FATAL] Valid firmware did not return EOT");
@@ -253,7 +270,7 @@ module tb_soc_bootloader;
     end
 
     initial begin
-        #(CLK_PERIOD * 2000000);
+        #(CLK_PERIOD * PR_CLKS_PER_BIT * 100000);
         $display("[-] TIMEOUT in tb_soc_bootloader!");
         $display("[FATAL] tb_soc_bootloader timed out");
         $finish;

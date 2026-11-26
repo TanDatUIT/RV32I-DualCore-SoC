@@ -1,6 +1,6 @@
 // =============================================================================
 // Testbench   : tb_soc_full
-// Project     : SoC Physical Design Final Project (Dual-Core RV32I SoC)
+// Project     : SoC Physical Design Final Project (Cadence GPDK 45nm)
 // Description : Self-checking system-level testbench for soc_top executing
 //               firmware/tests/soc_full_test.hex:
 //                 1. RV32I ISA, forwarding, load-use, JAL-after-SW, D-SRAM RMW
@@ -42,9 +42,13 @@ module tb_soc_full;
         forever #(CLK_PERIOD / 2.0) clk = ~clk;
     end
 
+`ifdef GATE_SIM
+    soc_top u_soc_top (
+`else
     soc_top #(
         .PR_UART_CLKS_PER_BIT (PR_CLKS_PER_BIT)
     ) u_soc_top (
+`endif
         .i_clk      (clk),
         .i_resetn   (resetn),
         .i_uart_rxd (uart_rxd),

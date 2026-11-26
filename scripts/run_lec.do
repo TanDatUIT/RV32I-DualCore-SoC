@@ -1,16 +1,20 @@
 // =============================================================================
 // run_lec.do - Cadence Conformal LEC (Golden RTL vs Gate-Level Netlist)
-// Usage (from <project_root>/work_lec or project root):
+// Usage (from project root):
 //   lec -xl -nogui -dofile scripts/run_lec.do
-//   (Set env LEC_REVISED=outputs/soc_top_pnr_lec.v for post-PnR LEC without fillers)
+//   LEC_REVISED=outputs/soc_top_pnr_lec.v LEC_LOG=reports/lec/lec_rtl2pnr.log \
+//     lec -xl -nogui -dofile scripts/run_lec.do
 // =============================================================================
 
-set log file reports/lec/lec_soc.log -replace
-
-// 1. Read Liberty technology & macro libraries (expand paths inside tclmode)
 tclmode
 set pdk_dir [expr {[info exists ::env(PDK)] ? $::env(PDK) : "$::env(HOME)/PDK_GPDK45"}]
 set rev_net [expr {[info exists ::env(LEC_REVISED)] ? $::env(LEC_REVISED) : "outputs/soc_syn.v"}]
+set log_out [expr {[info exists ::env(LEC_LOG)] ? $::env(LEC_LOG) : "reports/lec/lec_soc.log"}]
+file mkdir [file dirname $log_out]
+vpx set log file "$log_out" -replace
+// Blackbox SRAM hard macro BEFORE reading library/design
+vpx add notranslate module sram_2k_macro -both
+// 1. Read Liberty technology & macro libraries
 vpx read library -liberty -both "$pdk_dir/lib/slow_vdd1v0_basiccells.lib" "$pdk_dir/lib/sram_2k_macro.lib"
 vpxmode
 
@@ -33,18 +37,23 @@ read design -verilog2k -golden \
     rtl/periph/soc_sysctrl.v \
     rtl/soc_top.v
 
-// 3. Read Revised Netlist (Post-Syn or Post-PnR)
+// 3. Read Revised Netlist (Post-Syn or Post-PnR without fillers)
 tclmode
 vpx read design -verilog -revised "$rev_net"
 vpxmode
 
 set root module soc_top -both
 
-// 4. Blackbox SRAM hard macro (modelled by .lib)
-add notranslate module sram_2k_macro -both
+// 4. Modeling directives matching Genus sequential & clock-gating optimizations
+set undriven signal 0 -golden
+set flatten model -seq_constant -seq_constant_x_to 0
+set flatten model -seq_merge
+set flatten model -gated_clock
+set analyze option -auto
 
-// 5. Switch to LEC mode and compare
+// 5. Switch to LEC mode, analyze setup and compare
 set system mode lec
+analyze datapath -module -verbose
 add compare points -all
 compare
 

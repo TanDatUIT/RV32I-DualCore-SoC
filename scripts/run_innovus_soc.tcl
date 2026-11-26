@@ -1,10 +1,10 @@
 # ==============================================================================
 # run_innovus_soc.tcl - Innovus RTL-to-GDSII flow for the RV32I SoC
-# Project : Physical Design Final Project
+# Project : Chuyen de VM1 - Physical Design Final Project
 # Tech    : Cadence GPDK 45nm
 # Design  : soc_top (RV32I + 2x sram_2k_macro + Mini-NPU + DMA + Periph/Sec)
 #
-# Usage (from <project_root>/):
+# Usage (from Final_Project_SoC_datdat/):
 #     innovus -no_gui -files scripts/run_innovus_soc.tcl
 # ==============================================================================
 
@@ -46,7 +46,7 @@ if {[info exists ::env(PDK)]} {
 } elseif {[file exists [file join $::env(HOME) PDK_GPDK45]]} {
     set PDK_ROOT [file join $::env(HOME) PDK_GPDK45]
 } else {
-    set PDK_ROOT $::env(HOME)/PDK_GPDK45
+    set PDK_ROOT [file join $::env(HOME) PDK_GPDK45]
 }
 set ::env(PDK)      $PDK_ROOT
 set ::env(PDK_ROOT) $PDK_ROOT
@@ -285,7 +285,7 @@ setAnalysisMode -analysisType onChipVariation -cppr both
 
 timeDesign -postRoute -pathReports -drvReports -slackReports -numPaths 50 \
     -prefix signoff_setup -outDir $RPT_ROOT/signoff
-timeDesign -postRoute -hold -pathReports -drvReports -slackReports -numPaths 50 \
+timeDesign -postRoute -hold -pathReports -slackReports -numPaths 50 \
     -prefix signoff_hold  -outDir $RPT_ROOT/signoff
 
 summaryReport -noHtml -outfile $RPT_ROOT/signoff/design_summary.rpt
