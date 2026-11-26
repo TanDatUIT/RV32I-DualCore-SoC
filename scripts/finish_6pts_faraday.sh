@@ -162,6 +162,11 @@ for sc in "${SCENARIOS[@]}"; do
     fi
     RUN_WORK="$PROJECT_ROOT/work_pnr/area_sweep/$TAG"
     RUN_RPT="$PROJECT_ROOT/reports/pnr/area_sweep/$TAG"
+    if [ "$TAG" = "FP6_icg_u65" ] && [ -d "$RUN_WORK/DBS/signoff_eco.enc.dat" ]; then
+        log_m "SKIP resume signoff for $TAG (preserving Post-ECO signoff_eco.enc.dat)"
+        emit_row "$LABEL" "$UTIL" "$RUN_RPT" "PASS"
+        continue
+    fi
     log_m "START resume signoff: $TAG ($LABEL)"
     SOC_RUN_TAG="$TAG" innovus -no_gui -files "$PROJECT_ROOT/scripts/finish_signoff_from_routed.tcl" \
         -log "$RUN_WORK/innovus_resume.log" < /dev/null >> "$LOG" 2>&1
